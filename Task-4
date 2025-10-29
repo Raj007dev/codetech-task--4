@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced AES-256 Encryption Tool</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Load CryptoJS for AES-256 and key derivation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+        .crypto-card {
+            box-shadow: 0 10px 20px rgba(0, 255, 255, 0.1), 0 6px 6px rgba(0, 255, 255, 0.1);
+            border: 1px solid #30363d;
+            background-color: #161b22;
+        }
+        .btn-primary {
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0, 255, 255, 0.3);
+        }
+        /* Custom scrollbar for textareas */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background-color: #00bcd4;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="p-4 min-h-screen flex items-center justify-center">
+
+    <div id="app" class="w-full max-w-lg mx-auto p-6 rounded-xl crypto-card">
+
+        <h1 class="text-3xl font-bold mb-6 text-center text-cyan-400">Advanced Encryption Tool</h1>
+        <p class="text-sm text-center mb-6 text-gray-400">AES-256: Secure client-side data protection.</p>
+
+        <!-- Status Message / Modal -->
+        <div id="status-message" class="hidden p-3 mb-4 rounded-lg text-sm font-semibold" role="alert"></div>
+
+        <!-- 1. Input Data -->
+        <div class="mb-4">
+            <label for="inputData" class="block text-sm font-medium mb-2 text-gray-300">Input Data (Text)</label>
+            <textarea id="inputData" rows="6" placeholder="Enter text or paste encrypted data here..."
+                class="w-full p-3 rounded-lg bg-gray-700/50 border border-gray-600 focus:ring-cyan-500 focus:border-cyan-500 text-white resize-none"></textarea>
+        </div>
+
+        <!-- 2. Configuration -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <label for="algorithm" class="block text-sm font-medium mb-2 text-gray-300">Algorithm</label>
+                <select id="algorithm" disabled
+                    class="w-full p-3 rounded-lg bg-gray-700/50 border border-gray-600 text-white cursor-not-allowed">
+                    <option value="aes-256">AES-256 (Mandatory)</option>
+                </select>
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium mb-2 text-gray-300">Secret Password</label>
+                <input type="password" id="password" placeholder="Enter your secret key"
+                    class="w-full p-3 rounded-lg bg-gray-700/50 border border-gray-600 focus:ring-cyan-500 focus:border-cyan-500 text-white">
+            </div>
+        </div>
+
+        <!-- 3. Actions -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <button id="encryptBtn"
+                class="flex-1 w-full sm:w-auto btn-primary bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg shadow-green-600/30 transition-all duration-200">
+                Encrypt Data
+            </button>
+            <button id="decryptBtn"
+                class="flex-1 w-full sm:w-auto btn-primary bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg shadow-red-600/30 transition-all duration-200">
+                Decrypt Data
+            </button>
+        </div>
+
+        <!-- 4. Output Data -->
+        <div class="mb-4">
+            <label for="outputData" class="block text-sm font-medium mb-2 text-gray-300">Output Data</label>
+            <textarea id="outputData" rows="6" readonly placeholder="Encrypted or decrypted result will appear here..."
+                class="w-full p-3 rounded-lg bg-gray-700/50 border border-gray-600 text-white/70 resize-none"></textarea>
+        </div>
+
+        <!-- 5. Utility Buttons -->
+        <div class="flex justify-end">
+             <button id="copyBtn" disabled
+                class="flex items-center space-x-2 bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                  <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                </svg>
+                <span>Copy Output</span>
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        const inputDataEl = document.getElementById('inputData');
+        const passwordEl = document.getElementById('password');
+        const outputDataEl = document.getElementById('outputData');
+        const encryptBtn = document.getElementById('encryptBtn');
+        const decryptBtn = document.getElementById('decryptBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const statusMessageEl = document.getElementById('status-message');
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a status message (like a flash alert) in the UI.
+         * @param {string} message - The message to display.
+         * @param {string} type - 'success', 'error', or 'info'.
+         */
+        function showStatus(message, type) {
+            statusMessageEl.textContent = message;
+            statusMessageEl.className = 'p-3 mb-4 rounded-lg text-sm font-semibold block';
+            statusMessageEl.classList.add(
+                type === 'success' ? 'bg-teal-900/50 text-teal-300 border-teal-500' :
+                type === 'error' ? 'bg-red-900/50 text-red-300 border-red-500' :
+                'bg-blue-900/50 text-blue-300 border-blue-500'
+            );
+            statusMessageEl.classList.remove('hidden');
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                statusMessageEl.classList.add('hidden');
+            }, 5000);
+        }
+
+        /**
+         * Copies the output text to the clipboard.
+         */
+        function copyToClipboard(text) {
+            // Fallback for secure environments (iframe limitations)
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showStatus('Output copied to clipboard!', 'success');
+            } catch (err) {
+                showStatus('Failed to copy. Please copy manually.', 'error');
+            } finally {
+                document.body.removeChild(tempInput);
+            }
+        }
+
+        // --- Core Encryption Logic (AES-256) ---
+
+        /**
+         * Encrypts the plaintext using AES-256 with a password.
+         * @param {string} plaintext - The data to encrypt.
+         * @param {string} password - The key/password.
+         * @returns {string} The ciphertext as a string.
+         */
+        function encryptData(plaintext, password) {
+            // CryptoJS uses an OpenSSL-like key derivation function (EVP_BytesToKey) internally
+            // when passing a string password, which is robust for this use case.
+            // The result is stored in the standard Base64 format.
+            try {
+                const ciphertext = CryptoJS.AES.encrypt(plaintext, password).toString();
+                return ciphertext;
+            } catch (error) {
+                console.error("Encryption Error:", error);
+                showStatus('Encryption failed due to an unexpected error.', 'error');
+                return '';
+            }
+        }
+
+        /**
+         * Decrypts the ciphertext using AES-256 with a password.
+         * @param {string} ciphertext - The data to decrypt.
+         * @param {string} password - The key/password.
+         * @returns {string} The decrypted plaintext or an error message.
+         */
+        function decryptData(ciphertext, password) {
+            try {
+                const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+                
+                // If decryption fails, an empty or invalid word array is usually returned,
+                // leading to an empty string on conversion.
+                if (bytes.sigBytes <= 0) {
+                     throw new Error('Invalid key or corrupted data.');
+                }
+
+                const plaintext = bytes.toString(CryptoJS.enc.Utf8);
+
+                // Check if the resulting string is empty or contains non-printable characters
+                if (!plaintext) {
+                    throw new Error('Invalid key or corrupted data.');
+                }
+
+                return plaintext;
+            } catch (error) {
+                console.error("Decryption Error:", error);
+                // Specifically check for error messages typical of failed decryption
+                if (error.message && (error.message.includes('Invalid key') || error.message.includes('malformed'))) {
+                    showStatus('Decryption failed. Please check your password and data format.', 'error');
+                } else {
+                    showStatus('Decryption failed: ' + error.message, 'error');
+                }
+                return 'DECRYPTION FAILED. Check password and ensure data is correctly formatted AES-256 cipher.';
+            }
+        }
+
+        // --- Event Handlers ---
+
+        function handleEncrypt() {
+            const data = inputDataEl.value.trim();
+            const password = passwordEl.value;
+
+            if (!data) {
+                showStatus('Input data cannot be empty.', 'info');
+                return;
+            }
+            if (!password) {
+                showStatus('A secret password is required for AES-256 encryption.', 'info');
+                return;
+            }
+
+            const ciphertext = encryptData(data, password);
+
+            if (ciphertext) {
+                outputDataEl.value = ciphertext;
+                copyBtn.disabled = false;
+                showStatus('Encryption successful! Ciphertext generated.', 'success');
+            }
+        }
+
+        function handleDecrypt() {
+            const data = inputDataEl.value.trim();
+            const password = passwordEl.value;
+
+            if (!data) {
+                showStatus('Input ciphertext cannot be empty.', 'info');
+                return;
+            }
+            if (!password) {
+                showStatus('A secret password is required for AES-256 decryption.', 'info');
+                return;
+            }
+
+            const plaintext = decryptData(data, password);
+
+            outputDataEl.value = plaintext;
+            copyBtn.disabled = false;
+
+            if (plaintext.startsWith('DECRYPTION FAILED')) {
+                // Status is already shown inside decryptData
+            } else {
+                showStatus('Decryption successful! Plaintext recovered.', 'success');
+            }
+        }
+
+        function handleCopy() {
+            const output = outputDataEl.value;
+            if (output) {
+                copyToClipboard(output);
+            } else {
+                showStatus('Output field is empty.', 'info');
+            }
+        }
+
+        // --- Initialization ---
+
+        encryptBtn.addEventListener('click', handleEncrypt);
+        decryptBtn.addEventListener('click', handleDecrypt);
+        copyBtn.addEventListener('click', handleCopy);
+
+        // Enable/disable copy button based on output field content
+        outputDataEl.addEventListener('input', () => {
+            copyBtn.disabled = outputDataEl.value.trim() === '';
+        });
+
+        // Initial check for copy button state
+        copyBtn.disabled = outputDataEl.value.trim() === '';
+
+    </script>
+</body>
+</html>
